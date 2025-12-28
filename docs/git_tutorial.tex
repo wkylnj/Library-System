@@ -1,0 +1,1144 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fontspec}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tcolorbox}
+
+% 页面设置
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% 代码样式
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    language=bash
+}
+
+% 页眉页脚
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Git与GitHub使用教程}
+\fancyhead[R]{智能图书管理系统}
+\fancyfoot[C]{\thepage}
+
+% 标题格式
+\titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+% 提示框样式
+\tcbuselibrary{skins,breakable}
+\newtcolorbox{tipbox}[1][]{
+    colback=blue!5,
+    colframe=blue!75!black,
+    fonttitle=\bfseries,
+    title=提示,
+    #1
+}
+\newtcolorbox{warnbox}[1][]{
+    colback=yellow!10,
+    colframe=orange!75!black,
+    fonttitle=\bfseries,
+    title=注意,
+    #1
+}
+\newtcolorbox{dangerbox}[1][]{
+    colback=red!5,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title=警告,
+    #1
+}
+
+\begin{document}
+
+% ============================================================
+% 封面
+% ============================================================
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries Git与GitHub完全指南\\[0.8cm]}
+    {\LARGE\bfseries 从入门到进阶\\[2cm]}
+
+    \vfill
+
+    {\Large
+    \begin{tabular}{rl}
+        \textbf{项目实例：} & 智能图书管理系统 \\[0.4cm]
+        \textbf{仓库地址：} & https://github.com/wkylnj/Library-System \\[0.4cm]
+        \textbf{作者：} & 王楷宇 \\[0.4cm]
+    \end{tabular}
+    }
+
+    \vfill
+    {\large \today}
+\end{titlepage}
+
+% 目录
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Git基础概念}
+% ============================================================
+
+\subsection{什么是Git}
+
+Git是一个分布式版本控制系统，由Linux之父Linus Torvalds于2005年创建。它可以：
+
+\begin{itemize}[leftmargin=2em]
+    \item 记录文件的每次修改历史
+    \item 支持多人协作开发
+    \item 在不同版本之间自由切换
+    \item 创建分支进行并行开发
+    \item 合并不同分支的修改
+\end{itemize}
+
+\subsection{Git工作流程}
+
+Git有三个主要区域：
+
+\begin{enumerate}
+    \item \textbf{工作区（Working Directory）}：本地文件系统中的项目目录
+    \item \textbf{暂存区（Staging Area）}：准备提交的文件变更
+    \item \textbf{版本库（Repository）}：已提交的历史记录
+\end{enumerate}
+
+\begin{lstlisting}[caption=Git工作流程]
+工作区 ---> git add ---> 暂存区 ---> git commit ---> 版本库
+                                                         |
+                                                         v
+                                               git push ---> 远程仓库
+\end{lstlisting}
+
+\subsection{GitHub简介}
+
+GitHub是全球最大的代码托管平台，提供：
+
+\begin{itemize}[leftmargin=2em]
+    \item 远程Git仓库托管
+    \item 代码协作与审查（Pull Request）
+    \item 项目管理（Issues、Projects）
+    \item 自动化工作流（GitHub Actions）
+    \item 开源社区交流
+\end{itemize}
+
+% ============================================================
+\section{SSH密钥配置}
+% ============================================================
+
+使用SSH协议连接GitHub可以避免每次操作都输入用户名和密码。
+
+\subsection{检查现有SSH密钥}
+
+\begin{lstlisting}[caption=检查SSH密钥]
+# 查看是否已有SSH密钥
+ls -la ~/.ssh
+
+# 如果存在 id_rsa.pub 或 id_ed25519.pub，则已有密钥
+\end{lstlisting}
+
+\subsection{生成新的SSH密钥}
+
+\begin{lstlisting}[caption=生成SSH密钥]
+# 使用Ed25519算法（推荐）
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# 或使用RSA算法（兼容性更好）
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+\end{lstlisting}
+
+执行后会提示：
+
+\begin{lstlisting}
+Enter file in which to save the key (/root/.ssh/id_ed25519):
+# 直接回车使用默认路径
+
+Enter passphrase (empty for no passphrase):
+# 可选：设置密码短语，增加安全性
+
+Enter same passphrase again:
+# 确认密码短语
+\end{lstlisting}
+
+\subsection{添加SSH密钥到ssh-agent}
+
+\begin{lstlisting}[caption=启动ssh-agent并添加密钥]
+# 启动ssh-agent
+eval "$(ssh-agent -s)"
+
+# 添加私钥到ssh-agent
+ssh-add ~/.ssh/id_ed25519
+# 或
+ssh-add ~/.ssh/id_rsa
+\end{lstlisting}
+
+\subsection{将公钥添加到GitHub}
+
+\begin{lstlisting}[caption=复制公钥内容]
+# 查看并复制公钥
+cat ~/.ssh/id_ed25519.pub
+# 或
+cat ~/.ssh/id_rsa.pub
+\end{lstlisting}
+
+然后在GitHub上添加：
+
+\begin{enumerate}
+    \item 登录GitHub，点击右上角头像
+    \item 选择 Settings $\rightarrow$ SSH and GPG keys
+    \item 点击 "New SSH key"
+    \item Title填写描述（如：My Server）
+    \item Key粘贴刚才复制的公钥内容
+    \item 点击 "Add SSH key"
+\end{enumerate}
+
+\subsection{测试SSH连接}
+
+\begin{lstlisting}[caption=测试GitHub SSH连接]
+ssh -T git@github.com
+
+# 成功会显示：
+# Hi username! You've successfully authenticated, but GitHub
+# does not provide shell access.
+\end{lstlisting}
+
+\begin{tipbox}
+首次连接会提示确认GitHub的指纹，输入 \texttt{yes} 即可。
+\end{tipbox}
+
+% ============================================================
+\section{将新项目提交到GitHub}
+% ============================================================
+
+以智能图书管理系统为例，演示如何将一个新项目提交到GitHub。
+
+\subsection{在GitHub创建仓库}
+
+\begin{enumerate}
+    \item 登录GitHub
+    \item 点击右上角 "+" $\rightarrow$ "New repository"
+    \item 填写仓库名称：Library-System
+    \item 选择公开（Public）或私有（Private）
+    \item 不要勾选 "Initialize this repository with a README"（如果本地已有项目）
+    \item 点击 "Create repository"
+\end{enumerate}
+
+\subsection{初始化本地Git仓库}
+
+\begin{lstlisting}[caption=初始化Git仓库]
+# 进入项目目录
+cd /root/website_homework/library_system
+
+# 初始化Git仓库
+git init
+
+# 查看状态
+git status
+\end{lstlisting}
+
+\subsection{创建.gitignore文件}
+
+\begin{lstlisting}[caption=.gitignore文件内容]
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+
+# 敏感文件
+.env
+*.pem
+cookies.txt
+
+# OS
+.DS_Store
+Thumbs.db
+\end{lstlisting}
+
+\begin{warnbox}
+务必在提交前创建.gitignore，避免将敏感信息（如API密钥、数据库）提交到仓库！
+\end{warnbox}
+
+\subsection{处理敏感信息}
+
+将敏感配置改为环境变量：
+
+\begin{lstlisting}[language=Python,caption=settings.py中的敏感信息处理]
+import os
+
+# 错误示例 - 不要这样做！
+# AI_API_KEY = 'sk-your-secret-key'
+
+# 正确示例 - 使用环境变量
+AI_API_KEY = os.environ.get('AI_API_KEY', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+\end{lstlisting}
+
+创建.env.example文件供参考：
+
+\begin{lstlisting}[caption=.env.example]
+# AI服务配置
+AI_API_KEY=your_api_key_here
+
+# 邮件配置
+EMAIL_HOST_PASSWORD=your_password_here
+\end{lstlisting}
+
+\subsection{添加远程仓库}
+
+\begin{lstlisting}[caption=添加远程仓库]
+# 添加远程仓库（使用SSH）
+git remote add origin git@github.com:wkylnj/Library-System.git
+
+# 查看远程仓库
+git remote -v
+
+# 输出：
+# origin  git@github.com:wkylnj/Library-System.git (fetch)
+# origin  git@github.com:wkylnj/Library-System.git (push)
+\end{lstlisting}
+
+\subsection{提交并推送}
+
+\begin{lstlisting}[caption=首次提交]
+# 重命名默认分支为main（现代规范）
+git branch -m main
+
+# 添加所有文件到暂存区
+git add -A
+
+# 查看将要提交的文件
+git status
+
+# 提交
+git commit -m "Initial commit: 智能图书管理系统
+
+功能特性:
+- AI智能对话助手
+- AI个性化图书推荐
+- AI图书封面生成
+- 图书副本管理
+- 预约与到期提醒系统"
+
+# 推送到远程仓库
+git push -u origin main
+\end{lstlisting}
+
+\begin{tipbox}
+\texttt{-u} 参数会设置上游分支，之后可以直接使用 \texttt{git push} 和 \texttt{git pull}。
+\end{tipbox}
+
+% ============================================================
+\section{远程仓库已有内容的情况}
+% ============================================================
+
+当远程仓库已有内容时，直接推送会被拒绝。有以下几种处理方式：
+
+\subsection{场景一：合并远程内容}
+
+当你想保留远程仓库的历史记录时：
+
+\begin{lstlisting}[caption=拉取并合并]
+# 拉取远程内容（允许不相关的历史）
+git pull origin main --allow-unrelated-histories
+
+# 如果有冲突，手动解决后：
+git add .
+git commit -m "Merge remote changes"
+
+# 推送
+git push origin main
+\end{lstlisting}
+
+\subsection{场景二：强制覆盖远程}
+
+当你确定要用本地版本完全替换远程版本时：
+
+\begin{lstlisting}[caption=强制推送]
+# 强制推送（会覆盖远程所有内容！）
+git push -f origin main
+\end{lstlisting}
+
+\begin{dangerbox}
+强制推送会丢失远程仓库的所有历史记录！请确保：
+\begin{itemize}
+    \item 远程仓库的内容确实不需要保留
+    \item 没有其他协作者依赖远程仓库
+    \item 已经备份了重要内容
+\end{itemize}
+\end{dangerbox}
+
+\subsection{场景三：下载源码修改后提交}
+
+如果你是直接下载（而非clone）了别人的源码并修改：
+
+\begin{lstlisting}[caption=处理下载的源码]
+# 1. 在项目目录初始化git
+cd your-project
+git init
+
+# 2. 添加远程仓库
+git remote add origin git@github.com:username/repo.git
+
+# 3. 拉取远程内容
+git fetch origin
+
+# 4. 创建本地分支并跟踪远程
+git checkout -b main origin/main
+
+# 5. 此时会提示有冲突，因为本地文件与远程不同
+# 如果要保留你的修改，可以：
+git checkout --ours .  # 保留本地版本
+# 或
+git checkout --theirs .  # 保留远程版本
+
+# 6. 手动合并需要的修改后提交
+git add .
+git commit -m "Add my modifications"
+git push origin main
+\end{lstlisting}
+
+\subsection{场景四：本地版本落后于远程}
+
+当其他人推送了新的提交，你的本地版本落后时：
+
+\begin{lstlisting}[caption=更新本地版本]
+# 方法1：拉取并合并
+git pull origin main
+
+# 方法2：拉取并变基（保持线性历史）
+git pull --rebase origin main
+
+# 方法3：先获取再决定如何合并
+git fetch origin
+git log origin/main  # 查看远程新提交
+git merge origin/main  # 合并
+# 或
+git rebase origin/main  # 变基
+\end{lstlisting}
+
+% ============================================================
+\section{Git基础操作}
+% ============================================================
+
+\subsection{配置用户信息}
+
+\begin{lstlisting}[caption=配置Git用户信息]
+# 配置用户名
+git config --global user.name "Your Name"
+
+# 配置邮箱
+git config --global user.email "your_email@example.com"
+
+# 查看配置
+git config --list
+\end{lstlisting}
+
+\subsection{克隆仓库}
+
+\begin{lstlisting}[caption=克隆仓库]
+# 使用SSH克隆（推荐）
+git clone git@github.com:wkylnj/Library-System.git
+
+# 使用HTTPS克隆
+git clone https://github.com/wkylnj/Library-System.git
+
+# 克隆到指定目录
+git clone git@github.com:wkylnj/Library-System.git my-project
+
+# 克隆指定分支
+git clone -b develop git@github.com:wkylnj/Library-System.git
+\end{lstlisting}
+
+\subsection{查看状态与历史}
+
+\begin{lstlisting}[caption=查看状态]
+# 查看工作区状态
+git status
+
+# 简洁模式
+git status -s
+
+# 查看提交历史
+git log
+
+# 简洁历史（单行）
+git log --oneline
+
+# 图形化显示分支
+git log --oneline --graph --all
+
+# 查看最近5次提交
+git log -5
+\end{lstlisting}
+
+\subsection{添加与提交}
+
+\begin{lstlisting}[caption=添加与提交]
+# 添加单个文件
+git add filename.py
+
+# 添加多个文件
+git add file1.py file2.py
+
+# 添加所有修改的文件
+git add .
+git add -A
+
+# 添加所有.py文件
+git add *.py
+
+# 提交
+git commit -m "提交信息"
+
+# 添加并提交（只对已跟踪的文件有效）
+git commit -am "提交信息"
+\end{lstlisting}
+
+\subsection{查看差异}
+
+\begin{lstlisting}[caption=查看差异]
+# 查看工作区与暂存区的差异
+git diff
+
+# 查看暂存区与最新提交的差异
+git diff --staged
+
+# 查看两个提交之间的差异
+git diff commit1 commit2
+
+# 查看某个文件的修改
+git diff filename.py
+\end{lstlisting}
+
+\subsection{撤销操作}
+
+\begin{lstlisting}[caption=撤销操作]
+# 撤销工作区的修改（恢复到暂存区状态）
+git checkout -- filename.py
+
+# 撤销暂存（从暂存区移除，保留工作区修改）
+git reset HEAD filename.py
+
+# 撤销最近一次提交（保留修改在工作区）
+git reset --soft HEAD^
+
+# 撤销最近一次提交（保留修改在暂存区）
+git reset --mixed HEAD^
+
+# 撤销最近一次提交（彻底删除修改）
+git reset --hard HEAD^
+
+# 创建一个新提交来撤销指定提交
+git revert commit_hash
+\end{lstlisting}
+
+\begin{warnbox}
+\texttt{git reset --hard} 会丢失所有未提交的修改，请谨慎使用！
+\end{warnbox}
+
+% ============================================================
+\section{分支操作}
+% ============================================================
+
+\subsection{分支基础}
+
+\begin{lstlisting}[caption=分支操作]
+# 查看所有分支
+git branch
+
+# 查看远程分支
+git branch -r
+
+# 查看所有分支（本地+远程）
+git branch -a
+
+# 创建新分支
+git branch feature-login
+
+# 切换分支
+git checkout feature-login
+
+# 创建并切换分支
+git checkout -b feature-login
+
+# 删除分支
+git branch -d feature-login
+
+# 强制删除未合并的分支
+git branch -D feature-login
+
+# 重命名分支
+git branch -m old-name new-name
+\end{lstlisting}
+
+\subsection{合并分支}
+
+\begin{lstlisting}[caption=合并分支]
+# 切换到目标分支
+git checkout main
+
+# 合并feature分支到main
+git merge feature-login
+
+# 合并时创建合并提交（即使可以快进）
+git merge --no-ff feature-login
+
+# 取消正在进行的合并
+git merge --abort
+\end{lstlisting}
+
+\subsection{变基（Rebase）}
+
+\begin{lstlisting}[caption=变基操作]
+# 将当前分支变基到main
+git rebase main
+
+# 交互式变基（可以修改、合并、删除提交）
+git rebase -i HEAD~3
+
+# 取消变基
+git rebase --abort
+
+# 继续变基（解决冲突后）
+git rebase --continue
+\end{lstlisting}
+
+\begin{tipbox}
+变基可以保持更干净的提交历史，但不要对已推送的提交进行变基！
+\end{tipbox}
+
+% ============================================================
+\section{远程操作}
+% ============================================================
+
+\subsection{远程仓库管理}
+
+\begin{lstlisting}[caption=远程仓库管理]
+# 查看远程仓库
+git remote -v
+
+# 添加远程仓库
+git remote add origin git@github.com:user/repo.git
+
+# 修改远程仓库URL
+git remote set-url origin git@github.com:user/new-repo.git
+
+# 删除远程仓库
+git remote remove origin
+
+# 重命名远程仓库
+git remote rename origin upstream
+\end{lstlisting}
+
+\subsection{推送与拉取}
+
+\begin{lstlisting}[caption=推送与拉取]
+# 推送到远程
+git push origin main
+
+# 推送并设置上游分支
+git push -u origin main
+
+# 推送所有分支
+git push --all origin
+
+# 推送标签
+git push origin v1.0.0
+git push --tags
+
+# 强制推送（危险！）
+git push -f origin main
+
+# 拉取远程更新
+git pull origin main
+
+# 拉取并变基
+git pull --rebase origin main
+
+# 获取远程更新（不合并）
+git fetch origin
+\end{lstlisting}
+
+\subsection{远程分支操作}
+
+\begin{lstlisting}[caption=远程分支操作]
+# 推送本地分支到远程
+git push origin feature-login
+
+# 删除远程分支
+git push origin --delete feature-login
+
+# 创建本地分支跟踪远程分支
+git checkout -b feature origin/feature
+
+# 查看本地分支与远程分支的关联
+git branch -vv
+\end{lstlisting}
+
+% ============================================================
+\section{Git进阶操作}
+% ============================================================
+
+\subsection{暂存工作（Stash）}
+
+当你需要临时切换分支但不想提交当前修改时：
+
+\begin{lstlisting}[caption=暂存工作]
+# 暂存当前修改
+git stash
+
+# 暂存并添加描述
+git stash save "正在开发登录功能"
+
+# 查看暂存列表
+git stash list
+
+# 恢复最近的暂存
+git stash pop
+
+# 恢复指定的暂存
+git stash apply stash@{0}
+
+# 删除暂存
+git stash drop stash@{0}
+
+# 清空所有暂存
+git stash clear
+\end{lstlisting}
+
+\subsection{标签管理}
+
+\begin{lstlisting}[caption=标签管理]
+# 创建轻量标签
+git tag v1.0.0
+
+# 创建附注标签（推荐）
+git tag -a v1.0.0 -m "版本1.0.0发布"
+
+# 查看所有标签
+git tag
+
+# 查看标签详情
+git show v1.0.0
+
+# 给历史提交打标签
+git tag -a v0.9.0 commit_hash
+
+# 推送标签到远程
+git push origin v1.0.0
+git push origin --tags
+
+# 删除本地标签
+git tag -d v1.0.0
+
+# 删除远程标签
+git push origin --delete v1.0.0
+\end{lstlisting}
+
+\subsection{Cherry-pick}
+
+选择性地将某个提交应用到当前分支：
+
+\begin{lstlisting}[caption=Cherry-pick]
+# 应用单个提交
+git cherry-pick commit_hash
+
+# 应用多个提交
+git cherry-pick commit1 commit2 commit3
+
+# 应用提交但不自动提交
+git cherry-pick -n commit_hash
+
+# 取消cherry-pick
+git cherry-pick --abort
+\end{lstlisting}
+
+\subsection{修改历史提交}
+
+\begin{lstlisting}[caption=修改历史提交]
+# 修改最近一次提交信息
+git commit --amend -m "新的提交信息"
+
+# 修改最近一次提交（添加遗漏的文件）
+git add forgotten_file.py
+git commit --amend --no-edit
+
+# 交互式修改最近3次提交
+git rebase -i HEAD~3
+# 在编辑器中：
+# pick -> edit: 修改提交
+# pick -> squash: 合并到上一个提交
+# pick -> drop: 删除提交
+\end{lstlisting}
+
+\begin{dangerbox}
+修改已推送的提交历史后需要强制推送，这会影响其他协作者！
+\end{dangerbox}
+
+\subsection{查找问题提交（Bisect）}
+
+当你知道某个版本有bug，但不确定是哪个提交引入的：
+
+\begin{lstlisting}[caption=二分查找问题提交]
+# 开始二分查找
+git bisect start
+
+# 标记当前版本有问题
+git bisect bad
+
+# 标记已知的正常版本
+git bisect good v1.0.0
+
+# Git会自动checkout中间的提交
+# 测试后标记
+git bisect good  # 如果没问题
+git bisect bad   # 如果有问题
+
+# 找到问题提交后结束
+git bisect reset
+\end{lstlisting}
+
+\subsection{子模块（Submodule）}
+
+在项目中引用其他Git仓库：
+
+\begin{lstlisting}[caption=子模块操作]
+# 添加子模块
+git submodule add git@github.com:user/library.git libs/library
+
+# 克隆包含子模块的项目
+git clone --recursive git@github.com:user/project.git
+
+# 更新子模块
+git submodule update --init --recursive
+
+# 更新子模块到最新
+git submodule update --remote
+\end{lstlisting}
+
+\subsection{清理仓库}
+
+\begin{lstlisting}[caption=清理仓库]
+# 删除未跟踪的文件（预览）
+git clean -n
+
+# 删除未跟踪的文件
+git clean -f
+
+# 删除未跟踪的文件和目录
+git clean -fd
+
+# 删除忽略的文件
+git clean -fX
+
+# 垃圾回收
+git gc
+
+# 压缩仓库
+git gc --aggressive
+\end{lstlisting}
+
+% ============================================================
+\section{解决冲突}
+% ============================================================
+
+\subsection{冲突产生的原因}
+
+当两个分支修改了同一文件的同一位置时，Git无法自动合并，需要手动解决。
+
+\subsection{冲突标记}
+
+\begin{lstlisting}[caption=冲突标记示例]
+<<<<<<< HEAD
+这是当前分支的内容
+=======
+这是要合并的分支的内容
+>>>>>>> feature-branch
+\end{lstlisting}
+
+\subsection{解决冲突步骤}
+
+\begin{lstlisting}[caption=解决冲突]
+# 1. 查看冲突文件
+git status
+
+# 2. 编辑冲突文件，删除冲突标记，保留需要的内容
+
+# 3. 标记冲突已解决
+git add conflicted_file.py
+
+# 4. 完成合并
+git commit -m "Resolve merge conflict"
+\end{lstlisting}
+
+\subsection{使用工具解决冲突}
+
+\begin{lstlisting}[caption=使用合并工具]
+# 使用默认合并工具
+git mergetool
+
+# 指定合并工具
+git mergetool --tool=vimdiff
+\end{lstlisting}
+
+% ============================================================
+\section{最佳实践}
+% ============================================================
+
+\subsection{提交规范}
+
+\begin{lstlisting}[caption=提交信息格式]
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+\end{lstlisting}
+
+常用type：
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{feat}: 新功能
+    \item \textbf{fix}: 修复bug
+    \item \textbf{docs}: 文档更新
+    \item \textbf{style}: 代码格式调整
+    \item \textbf{refactor}: 重构
+    \item \textbf{test}: 测试相关
+    \item \textbf{chore}: 构建/工具相关
+\end{itemize}
+
+示例：
+\begin{lstlisting}
+feat(auth): 添加用户登录功能
+
+- 实现邮箱密码登录
+- 添加登录表单验证
+- 集成Session管理
+
+Closes #123
+\end{lstlisting}
+
+\subsection{分支策略}
+
+\begin{table}[H]
+\centering
+\caption{常用分支策略}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{分支} & \textbf{用途} & \textbf{说明} \\
+\midrule
+main/master & 生产环境 & 始终保持稳定可发布 \\
+develop & 开发环境 & 集成最新开发功能 \\
+feature/* & 功能开发 & 从develop创建，完成后合并回develop \\
+release/* & 发布准备 & 从develop创建，完成后合并到main和develop \\
+hotfix/* & 紧急修复 & 从main创建，完成后合并到main和develop \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{.gitignore最佳实践}
+
+\begin{itemize}[leftmargin=2em]
+    \item 忽略编译产物（.pyc, .class, .o）
+    \item 忽略依赖目录（node\_modules, venv）
+    \item 忽略IDE配置（.idea, .vscode）
+    \item 忽略系统文件（.DS\_Store, Thumbs.db）
+    \item 忽略敏感信息（.env, secrets.json）
+    \item 忽略日志文件（*.log）
+    \item 不要忽略锁文件（package-lock.json, Pipfile.lock）
+\end{itemize}
+
+% ============================================================
+\section{常见问题解决}
+% ============================================================
+
+\subsection{撤销已推送的提交}
+
+\begin{lstlisting}[caption=撤销已推送的提交]
+# 方法1：创建新提交来撤销（推荐）
+git revert commit_hash
+git push origin main
+
+# 方法2：强制重写历史（危险）
+git reset --hard HEAD^
+git push -f origin main
+\end{lstlisting}
+
+\subsection{恢复删除的分支}
+
+\begin{lstlisting}[caption=恢复删除的分支]
+# 查看操作日志
+git reflog
+
+# 找到删除前的commit hash，创建新分支
+git checkout -b recovered-branch commit_hash
+\end{lstlisting}
+
+\subsection{修改已推送的提交作者}
+
+\begin{lstlisting}[caption=修改提交作者]
+# 修改最近一次提交的作者
+git commit --amend --author="New Name <new@email.com>"
+git push -f origin main
+\end{lstlisting}
+
+\subsection{大文件处理}
+
+\begin{lstlisting}[caption=大文件处理]
+# 安装Git LFS
+git lfs install
+
+# 跟踪大文件
+git lfs track "*.psd"
+git lfs track "*.zip"
+
+# 查看跟踪的文件类型
+git lfs track
+
+# 提交.gitattributes
+git add .gitattributes
+git commit -m "Add Git LFS tracking"
+\end{lstlisting}
+
+% ============================================================
+\section{实战：智能图书管理系统提交流程}
+% ============================================================
+
+以下是本项目完整的Git操作流程：
+
+\begin{lstlisting}[caption=完整提交流程]
+# 1. 进入项目目录
+cd /root/website_homework/library_system
+
+# 2. 初始化Git仓库
+git init
+
+# 3. 创建.gitignore
+cat > .gitignore << 'EOF'
+__pycache__/
+*.py[cod]
+venv/
+db.sqlite3
+.env
+cookies.txt
+.claude/
+EOF
+
+# 4. 处理敏感信息（修改settings.py使用环境变量）
+
+# 5. 创建.env.example
+cat > .env.example << 'EOF'
+AI_API_KEY=your_api_key
+EMAIL_HOST_PASSWORD=your_password
+EOF
+
+# 6. 添加远程仓库
+git remote add origin git@github.com:wkylnj/Library-System.git
+
+# 7. 重命名分支
+git branch -m main
+
+# 8. 添加所有文件
+git add -A
+
+# 9. 查看状态
+git status
+
+# 10. 提交
+git commit -m "Initial commit: 智能图书管理系统
+
+功能特性:
+- AI智能对话助手 (通义千问)
+- AI个性化图书推荐
+- AI图书封面生成 (通义万相)
+- 图书副本编号管理
+- 图书预约与排队系统
+- 多级到期提醒
+- 邮箱验证码注册
+- 响应式Bootstrap 5界面"
+
+# 11. 推送（如果远程为空）
+git push -u origin main
+
+# 12. 如果远程已有内容，强制推送
+git push -f origin main
+\end{lstlisting}
+
+% ============================================================
+\section{总结}
+% ============================================================
+
+\subsection{Git核心命令速查}
+
+\begin{table}[H]
+\centering
+\caption{Git核心命令}
+\begin{tabular}{ll}
+\toprule
+\textbf{命令} & \textbf{功能} \\
+\midrule
+git init & 初始化仓库 \\
+git clone & 克隆仓库 \\
+git add & 添加到暂存区 \\
+git commit & 提交更改 \\
+git push & 推送到远程 \\
+git pull & 拉取并合并 \\
+git fetch & 获取远程更新 \\
+git branch & 分支管理 \\
+git checkout & 切换分支/恢复文件 \\
+git merge & 合并分支 \\
+git rebase & 变基 \\
+git stash & 暂存工作 \\
+git log & 查看历史 \\
+git diff & 查看差异 \\
+git reset & 重置 \\
+git revert & 撤销提交 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{学习资源}
+
+\begin{itemize}[leftmargin=2em]
+    \item 官方文档：\url{https://git-scm.com/doc}
+    \item Pro Git电子书：\url{https://git-scm.com/book/zh/v2}
+    \item GitHub文档：\url{https://docs.github.com/zh}
+    \item 交互式学习：\url{https://learngitbranching.js.org}
+\end{itemize}
+
+\end{document}
