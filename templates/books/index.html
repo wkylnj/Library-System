@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}图书列表 - 图书管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 欢迎页样式 */
+    .hero-section {
+        height: 100vh;
+        background: url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1920') center center / cover no-repeat;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: -56px;
+        padding-top: 56px;
+    }
+
+    .hero-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(44, 62, 80, 0.85) 0%, rgba(52, 152, 219, 0.7) 100%);
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 10;
+        text-align: center;
+        color: white;
+    }
+
+    .hero-content h1 {
+        font-size: 3.5rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+        margin-bottom: 1rem;
+    }
+
+    .hero-content p {
+        font-size: 1.3rem;
+        opacity: 0.9;
+        margin-bottom: 2rem;
+    }
+
+    .hero-btn {
+        padding: 12px 40px;
+        font-size: 1.1rem;
+        border-radius: 30px;
+        margin: 0 10px;
+    }
+
+    .scroll-indicator {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        cursor: pointer;
+        animation: bounce 2s infinite;
+        text-align: center;
+    }
+
+    .scroll-indicator i {
+        font-size: 2.5rem;
+        color: white;
+        opacity: 0.8;
+    }
+
+    .scroll-indicator span {
+        display: block;
+        color: white;
+        font-size: 0.9rem;
+        margin-top: 5px;
+        opacity: 0.8;
+    }
+
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+            transform: translateX(-50%) translateY(0);
+        }
+        40% {
+            transform: translateX(-50%) translateY(-15px);
+        }
+        60% {
+            transform: translateX(-50%) translateY(-7px);
+        }
+    }
+
+    /* 主内容区域 */
+    .main-content {
+        background: white;
+        position: relative;
+    }
+
+    .main-content::before {
+        content: '';
+        position: absolute;
+        top: -100px;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: linear-gradient(to bottom, transparent, white);
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<!-- 欢迎页面 - 书架背景 -->
+<section class="hero-section" id="heroSection">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <!-- 中国海洋大学徽标 -->
+        <img src="{% static 'images/专属图案3-1.png' %}" alt="中国海洋大学" class="hero-logo mb-4" style="max-width: 300px; height: auto;">
+        <h1><i class="bi bi-book"></i> 图书管理系统</h1>
+        <p>探索知识的海洋，开启阅读之旅</p>
+        <div class="mb-3">
+            {% if user.is_authenticated %}
+            <a href="#bookList" class="btn btn-light hero-btn" onclick="scrollToBooks()">
+                <i class="bi bi-collection"></i> 浏览图书
+            </a>
+            <a href="{% url 'books:ai_chat' %}" class="btn btn-outline-light hero-btn">
+                <i class="bi bi-robot"></i> AI 助手
+            </a>
+            {% else %}
+            <a href="{% url 'users:login' %}" class="btn btn-light hero-btn">
+                <i class="bi bi-box-arrow-in-right"></i> 登录
+            </a>
+            <a href="{% url 'users:register' %}" class="btn btn-outline-light hero-btn">
+                <i class="bi bi-person-plus"></i> 注册
+            </a>
+            {% endif %}
+        </div>
+        {% if user.is_authenticated %}
+        <div>
+            <a href="{% url 'users:profile' %}" class="btn btn-outline-light hero-btn">
+                <i class="bi bi-person-circle"></i> 个人中心
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="scroll-indicator" onclick="scrollToBooks()">
+        <i class="bi bi-chevron-double-down"></i>
+        <span>下滑浏览图书</span>
+    </div>
+</section>
+
+<!-- 图书列表区域 -->
+<div class="main-content" id="bookList">
+    <main class="container py-5">
+        <h2 class="text-center mb-4"><i class="bi bi-book"></i> 馆藏图书</h2>
+
+        <!-- 搜索表单 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.keyword }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.category }}
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> 搜索
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 图书列表 -->
+        {% if books %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+            {% for book in books %}
+            <div class="col">
+                <div class="card h-100 book-card">
+                    {% if book.cover %}
+                    <a href="{% url 'books:detail' book.pk %}">
+                        <img src="{{ book.cover.url }}" class="card-img-top" alt="{{ book.title }}" style="height: 200px; object-fit: cover;">
+                    </a>
+                    {% else %}
+                    <a href="{% url 'books:detail' book.pk %}">
+                        <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
+                            <i class="bi bi-book text-white" style="font-size: 4rem;"></i>
+                        </div>
+                    </a>
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <a href="{% url 'books:detail' book.pk %}" class="text-decoration-none">
+                                {{ book.title }}
+                            </a>
+                        </h5>
+                        <h6 class="card-subtitle mb-2 text-muted">{{ book.author }}</h6>
+                        <p class="card-text small">
+                            {% if book.category %}
+                            <span class="badge bg-secondary">{{ book.category.name }}</span>
+                            {% endif %}
+                            {% if book.is_available %}
+                            <span class="badge bg-success">可借阅</span>
+                            {% else %}
+                            <span class="badge bg-danger">已借完</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <small class="text-muted">
+                            库存: {{ book.available_copies }}/{{ book.total_copies }}
+                        </small>
+                        <a href="{% url 'books:detail' book.pk %}" class="btn btn-sm btn-outline-primary float-end">
+                            查看详情
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 分页 -->
+        {% if books.has_other_pages %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if books.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ books.previous_page_number }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">上一页</a>
+                </li>
+                {% endif %}
+
+                {% for num in books.paginator.page_range %}
+                {% if books.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > books.number|add:'-3' and num < books.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+
+                {% if books.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ books.next_page_number }}{% if request.GET.keyword %}&keyword={{ request.GET.keyword }}{% endif %}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> 暂无图书，
+            {% if user.is_authenticated and user.is_admin %}
+            <a href="{% url 'books:book_add' %}">添加图书</a>
+            {% else %}
+            请稍后再来查看。
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function scrollToBooks() {
+        document.getElementById('bookList').scrollIntoView({
+            behavior: 'smooth'
+        });
+    }
+
+    // 滚动时淡出欢迎页
+    window.addEventListener('scroll', function() {
+        const hero = document.getElementById('heroSection');
+        const scrollPos = window.scrollY;
+        const heroHeight = hero.offsetHeight;
+
+        if (scrollPos < heroHeight) {
+            const opacity = 1 - (scrollPos / heroHeight);
+            hero.style.opacity = Math.max(0.3, opacity);
+        }
+    });
+</script>
+{% endblock %}

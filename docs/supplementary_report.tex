@@ -1,0 +1,1350 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fontspec}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+
+% 页面设置
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% 代码样式
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny\color{gray}
+}
+
+% 页眉页脚
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{智能图书管理系统}
+\fancyhead[R]{后续优化更新报告}
+\fancyfoot[C]{\thepage}
+
+% 标题格式
+\titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+\begin{document}
+
+% ============================================================
+% 封面
+% ============================================================
+\begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+
+    {\Huge\bfseries 智能图书管理系统\\[0.8cm]}
+    {\LARGE\bfseries 后续优化更新报告\\[2cm]}
+
+    \vfill
+
+    {\Large
+    \begin{tabular}{rl}
+        \textbf{项目名称：} & 基于Django的智能图书管理系统 \\[0.4cm]
+        \textbf{开发框架：} & Django 6.0 + Bootstrap 5 \\[0.4cm]
+        \textbf{AI技术：} & 阿里云DashScope（通义系列） \\[0.4cm]
+        \textbf{数据库：} & SQLite3 \\[0.4cm]
+        \textbf{部署方式：} & Gunicorn + Nginx \\[0.4cm]
+        \textbf{设计者：} & 王楷宇 \\[0.4cm]
+        \textbf{项目仓库：} & https://github.com/wkylnj/Library-System \\[0.4cm]
+    \end{tabular}
+    }
+
+    \vfill
+    {\large \today}
+\end{titlepage}
+
+% 目录
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{本次优化更新内容}
+% ============================================================
+
+本次更新在原有系统基础上进行了多项重要功能的优化与新增，主要包括图书副本编号系统、AI智能封面生成、图书预约功能以及到期提醒系统。以下对各项更新进行详细说明。
+
+\subsection{图书副本编号系统}
+
+\subsubsection{功能背景}
+
+在实际图书馆场景中，同一种图书往往有多个副本。为了精确追踪每一本实体书的借阅状态，本次更新引入了图书副本编号系统。
+
+\subsubsection{功能特性}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{唯一编号生成}：每个副本自动生成唯一编号，格式为"图书ID-序号"（如：0001-001、0001-002）
+    \item \textbf{多状态管理}：支持5种副本状态
+    \begin{itemize}
+        \item 可借阅（available）：副本在馆可供借阅
+        \item 已借出（borrowed）：副本已被用户借阅
+        \item 已预约（reserved）：副本已被预约锁定
+        \item 维护中（maintenance）：副本正在修复或整理
+        \item 已丢失（lost）：副本丢失或损坏报废
+    \end{itemize}
+    \item \textbf{品相记录}：记录每本副本的品相状态（良好、一般、较差等）
+    \item \textbf{独立追踪}：借阅记录关联到具体副本，可追溯每本书的借阅历史
+    \item \textbf{批量管理}：管理员可批量添加副本，支持一次添加1-50本
+    \item \textbf{可视化管理}：在图书详情页直观展示所有副本状态
+\end{itemize}
+
+\subsubsection{数据模型设计}
+
+\begin{lstlisting}[language=Python, caption=BookCopy模型定义]
+class BookCopy(models.Model):
+    """图书副本模型 - 每本实体书"""
+    STATUS_CHOICES = [
+        ('available', '可借阅'),
+        ('borrowed', '已借出'),
+        ('reserved', '已预约'),
+        ('maintenance', '维护中'),
+        ('lost', '已丢失'),
+    ]
+
+    book = models.ForeignKey(Book, on_delete=models.CASCADE,
+                            related_name='copies', verbose_name='图书')
+    copy_number = models.CharField(max_length=50, verbose_name='副本编号')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                             default='available', verbose_name='状态')
+    condition = models.CharField(max_length=50, default='良好',
+                                verbose_name='品相')
+    notes = models.TextField(blank=True, verbose_name='备注')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='入库时间')
+
+    class Meta:
+        verbose_name = '图书副本'
+        unique_together = ['book', 'copy_number']
+
+    def save(self, *args, **kwargs):
+        if not self.copy_number:
+            # 自动生成副本编号
+            existing_count = BookCopy.objects.filter(book=self.book).count()
+            self.copy_number = f'{self.book.id:04d}-{existing_count + 1:03d}'
+        super().save(*args, **kwargs)
+\end{lstlisting}
+
+\subsubsection{库存计算逻辑}
+
+\begin{lstlisting}[language=Python, caption=动态库存计算]
+class Book(models.Model):
+    @property
+    def total_copies(self):
+        """总副本数"""
+        return self.copies.count()
+
+    @property
+    def available_copies(self):
+        """可借副本数"""
+        return self.copies.filter(status='available').count()
+
+    @property
+    def borrowed_copies(self):
+        """已借出副本数"""
+        return self.copies.filter(status='borrowed').count()
+
+    def is_available(self):
+        """是否有可借副本"""
+        return self.available_copies > 0
+
+    def get_available_copy(self):
+        """获取一本可借的副本"""
+        return self.copies.filter(status='available').first()
+\end{lstlisting}
+
+% ------------------------------------------
+\subsection{AI智能封面生成}
+% ------------------------------------------
+
+\subsubsection{功能背景}
+
+传统图书管理系统的图书展示往往缺乏视觉吸引力。本次更新引入AI图像生成技术，为每本图书自动生成艺术风格的封面图片，大幅提升系统的视觉体验。
+
+\subsubsection{技术方案}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{AI模型}：阿里云通义万相（wanx-v1）文生图大模型
+    \item \textbf{调用方式}：异步任务模式，通过DashScope API提交生成任务
+    \item \textbf{图片规格}：720×1280像素（竖版封面，适合移动端展示）
+    \item \textbf{存储方式}：本地文件存储，路径为 media/covers/
+    \item \textbf{文件命名}：{图书ID}\_{ISBN}.png
+\end{itemize}
+
+\subsubsection{智能提示词生成}
+
+系统根据图书的标题、作者、分类信息自动生成英文提示词，并根据不同分类匹配相应的艺术风格：
+
+\begin{lstlisting}[language=Python, caption=封面提示词生成逻辑]
+def generate_cover_prompt(self, book):
+    """根据图书信息生成封面提示词"""
+    category_style = {
+        '计算机': 'modern tech style, circuit patterns, blue and white colors,
+                  digital aesthetics, futuristic design',
+        '文学': 'elegant literary style, classic design, warm colors,
+                vintage paper texture, artistic typography',
+        '历史': 'vintage historical style, ancient textures, sepia tones,
+                old manuscript feel, classical elements',
+        '哲学': 'philosophical abstract style, deep colors, minimalist,
+                thought-provoking imagery, symbolic elements',
+        '心理学': 'mind and brain imagery, soft colors, professional,
+                  neural patterns, cognitive aesthetics',
+        '经济': 'business professional style, charts and graphs,
+                gold and navy colors, corporate elegance',
+        '科学': 'scientific illustration style, cosmos and atoms,
+                vibrant colors, discovery theme',
+        '艺术': 'artistic creative style, colorful palette,
+                expressive brushstrokes, gallery quality',
+    }
+
+    cat_name = book.category.name if book.category else '文学'
+    style = category_style.get(cat_name, 'elegant book cover design')
+
+    prompt = f"""Book cover design for '{book.title}' by {book.author},
+                {style}, high quality, professional publishing standard,
+                no text on cover, artistic composition"""
+    return prompt
+\end{lstlisting}
+
+\subsubsection{异步生成流程}
+
+\begin{enumerate}
+    \item 提交生成任务到DashScope API
+    \item 获取任务ID，进入轮询等待
+    \item 每3秒查询一次任务状态
+    \item 任务成功后下载生成的图片
+    \item 保存到本地并更新数据库记录
+\end{enumerate}
+
+\begin{lstlisting}[language=Python, caption=封面生成核心逻辑]
+def generate_cover_with_dashscope(self, book):
+    """使用DashScope API生成封面"""
+    url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/
+           text2image/image-synthesis'
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+        'X-DashScope-Async': 'enable'  # 异步模式
+    }
+
+    data = {
+        'model': 'wanx-v1',
+        'input': {'prompt': self.generate_cover_prompt(book)},
+        'parameters': {
+            'size': '720*1280',
+            'n': 1,
+            'style': '<auto>'
+        }
+    }
+
+    # 提交任务
+    response = requests.post(url, headers=headers, json=data)
+    task_id = response.json()['output']['task_id']
+
+    # 轮询获取结果
+    for _ in range(30):
+        time.sleep(3)
+        result = self.check_task_status(task_id)
+        if result['status'] == 'SUCCEEDED':
+            image_url = result['results'][0]['url']
+            return self.download_image(image_url)
+
+    return None
+\end{lstlisting}
+
+\subsubsection{管理命令}
+
+\begin{lstlisting}[language=bash, caption=封面生成命令]
+# 为所有没有封面的图书生成封面
+python manage.py generate_covers
+
+# 强制重新生成所有封面
+python manage.py generate_covers --force
+\end{lstlisting}
+
+% ------------------------------------------
+\subsection{图书预约功能}
+% ------------------------------------------
+
+\subsubsection{功能背景}
+
+当热门图书的所有副本都被借出时，用户往往需要等待。预约功能允许用户在图书无库存时进行预约，系统会在有书可借时自动通知用户。
+
+\subsubsection{功能特性}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{智能预约}：仅当图书无可借副本时显示预约按钮
+    \item \textbf{队列管理}：按预约时间先后排序，显示用户在队列中的位置
+    \item \textbf{自动通知}：图书归还时自动发送邮件通知第一个预约者
+    \item \textbf{状态流转}：等待中 → 已通知 → 已完成/已过期
+    \item \textbf{过期机制}：通知后3天未借阅自动过期，机会顺延给下一位
+    \item \textbf{取消预约}：用户可随时取消等待中的预约
+    \item \textbf{预约历史}：保留完整的预约记录供查询
+\end{itemize}
+
+\subsubsection{预约状态说明}
+
+\begin{table}[H]
+\centering
+\caption{预约状态流转}
+\begin{tabular}{lll}
+\toprule
+\textbf{状态} & \textbf{含义} & \textbf{后续操作} \\
+\midrule
+waiting（等待中） & 正在排队等待 & 可取消，等待通知 \\
+notified（已通知） & 有书可借，已发邮件 & 3天内前往借阅 \\
+fulfilled（已完成） & 用户已成功借阅 & 预约流程结束 \\
+cancelled（已取消） & 用户主动取消 & 预约流程结束 \\
+expired（已过期） & 通知后3天未借阅 & 机会顺延下一位 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{数据模型设计}
+
+\begin{lstlisting}[language=Python, caption=Reservation模型定义]
+class Reservation(models.Model):
+    """预约记录"""
+    STATUS_CHOICES = [
+        ('waiting', '等待中'),
+        ('notified', '已通知'),
+        ('fulfilled', '已完成'),
+        ('cancelled', '已取消'),
+        ('expired', '已过期'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                            related_name='reservations', verbose_name='预约人')
+    book = models.ForeignKey(Book, on_delete=models.CASCADE,
+                            related_name='reservations', verbose_name='图书')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='预约时间')
+    notified_at = models.DateTimeField(null=True, verbose_name='通知时间')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                             default='waiting', verbose_name='状态')
+
+    @property
+    def queue_position(self):
+        """获取在等待队列中的位置"""
+        if self.status != 'waiting':
+            return None
+        return Reservation.objects.filter(
+            book=self.book,
+            status='waiting',
+            created_at__lt=self.created_at
+        ).count() + 1
+\end{lstlisting}
+
+\subsubsection{自动通知逻辑}
+
+\begin{lstlisting}[language=Python, caption=归还时自动通知预约者]
+def notify_reservation(book):
+    """通知该书第一个等待中的预约者"""
+    reservation = Reservation.objects.filter(
+        book=book,
+        status='waiting'
+    ).order_by('created_at').first()
+
+    if not reservation:
+        return False
+
+    # 发送邮件通知
+    subject = f'好消息！您预约的《{book.title}》现在可以借阅了'
+    message = f'''
+    尊敬的 {reservation.user.username}：
+
+    您好！您预约的图书《{book.title}》现在有可借副本了。
+
+    请在收到此邮件后3天内前往图书馆借阅，逾期预约将自动取消。
+
+    图书信息：
+    - 书名：{book.title}
+    - 作者：{book.author}
+    - ISBN：{book.isbn}
+
+    祝您阅读愉快！
+    图书管理系统
+    '''
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[reservation.user.email]
+    )
+
+    # 更新预约状态
+    reservation.status = 'notified'
+    reservation.notified_at = timezone.now()
+    reservation.save()
+
+    return True
+\end{lstlisting}
+
+% ------------------------------------------
+\subsection{到期提醒系统}
+% ------------------------------------------
+
+\subsubsection{功能背景}
+
+图书逾期是图书馆管理中的常见问题。本次更新引入了完善的到期提醒系统，通过邮件主动提醒用户，有效减少逾期情况的发生。
+
+\subsubsection{提醒策略}
+
+\begin{table}[H]
+\centering
+\caption{多级到期提醒策略}
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{提醒类型} & \textbf{触发时机} & \textbf{邮件内容要点} \\
+\midrule
+3天提醒 & 距到期日还有3天 & 温馨提示，告知到期日期，建议续借或归还 \\
+1天提醒 & 距到期日还有1天 & 紧急提醒，强调明天到期，请尽快处理 \\
+逾期提醒 & 已超过到期日 & 催还通知，说明逾期天数，提醒可能的后果 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{防重复发送机制}
+
+系统为每条借阅记录维护三个标志位，确保每种提醒只发送一次：
+
+\begin{lstlisting}[language=Python, caption=BorrowRecord提醒标志]
+class BorrowRecord(models.Model):
+    # ... 其他字段 ...
+
+    # 邮件提醒标记
+    reminder_3days_sent = models.BooleanField(default=False,
+                                              verbose_name='3天提醒已发送')
+    reminder_1day_sent = models.BooleanField(default=False,
+                                             verbose_name='1天提醒已发送')
+    overdue_reminder_sent = models.BooleanField(default=False,
+                                                verbose_name='逾期提醒已发送')
+\end{lstlisting}
+
+\subsubsection{提醒任务实现}
+
+\begin{lstlisting}[language=Python, caption=到期提醒核心逻辑]
+def check_due_reminders():
+    """检查并发送到期提醒"""
+    now = timezone.now()
+    results = {'3_days': 0, '1_day': 0, 'overdue': 0}
+
+    # 获取所有借阅中的记录
+    active_borrows = BorrowRecord.objects.filter(status='borrowed')
+
+    for record in active_borrows:
+        days_remaining = (record.due_date - now).days
+
+        # 3天提醒
+        if days_remaining == 3 and not record.reminder_3days_sent:
+            send_reminder_email(record, '3_days')
+            record.reminder_3days_sent = True
+            record.save()
+            results['3_days'] += 1
+
+        # 1天提醒
+        elif days_remaining == 1 and not record.reminder_1day_sent:
+            send_reminder_email(record, '1_day')
+            record.reminder_1day_sent = True
+            record.save()
+            results['1_day'] += 1
+
+        # 逾期提醒
+        elif days_remaining < 0 and not record.overdue_reminder_sent:
+            send_reminder_email(record, 'overdue')
+            record.overdue_reminder_sent = True
+            record.status = 'overdue'
+            record.save()
+            results['overdue'] += 1
+
+    return results
+\end{lstlisting}
+
+\subsubsection{定时任务配置}
+
+系统提供了Django管理命令，可配合cron实现定时执行：
+
+\begin{lstlisting}[language=bash, caption=定时任务配置]
+# 管理命令
+python manage.py run_tasks
+
+# Cron配置（每天上午9点执行）
+0 9 * * * cd /root/website_homework/library_system && \
+    /usr/bin/python manage.py run_tasks >> /var/log/library_tasks.log 2>&1
+\end{lstlisting}
+
+% ============================================================
+\section{技术栈与开发流程}
+% ============================================================
+
+\subsection{技术栈详解}
+
+\subsubsection{后端技术}
+
+\begin{table}[H]
+\centering
+\caption{后端技术栈}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{技术} & \textbf{版本} & \textbf{用途说明} \\
+\midrule
+Python & 3.12 & 编程语言，简洁高效 \\
+Django & 6.0 & Web框架，提供ORM、模板、路由等 \\
+SQLite & 3 & 轻量级数据库，无需单独部署 \\
+Gunicorn & 最新 & WSGI服务器，处理并发请求 \\
+Pillow & 最新 & 图像处理库，支持封面存储 \\
+Requests & 最新 & HTTP客户端，调用AI API \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{前端技术}
+
+\begin{table}[H]
+\centering
+\caption{前端技术栈}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{技术} & \textbf{版本} & \textbf{用途说明} \\
+\midrule
+Bootstrap & 5.3 & CSS框架，响应式布局 \\
+Bootstrap Icons & 最新 & 图标库，美化界面 \\
+JavaScript & ES6+ & 前端交互，AJAX请求 \\
+Django Template & - & 服务端模板渲染 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{AI服务}
+
+\begin{table}[H]
+\centering
+\caption{AI服务配置}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{服务} & \textbf{模型} & \textbf{用途} \\
+\midrule
+通义千问 & qwen-turbo & AI对话、智能推荐 \\
+通义万相 & wanx-v1 & 图书封面生成 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{部署架构}
+
+\begin{table}[H]
+\centering
+\caption{部署技术}
+\begin{tabular}{llp{6cm}}
+\toprule
+\textbf{组件} & \textbf{技术} & \textbf{说明} \\
+\midrule
+Web服务器 & Nginx & 反向代理，静态文件服务 \\
+应用服务器 & Gunicorn & WSGI服务，Unix Socket通信 \\
+进程管理 & Systemd & 服务管理，开机自启 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{项目结构}
+
+\begin{lstlisting}[caption=项目目录结构]
+library_system/
+├── config/                 # 项目配置
+│   ├── settings.py        # Django配置
+│   ├── urls.py            # 主路由
+│   └── wsgi.py            # WSGI入口
+├── books/                  # 图书应用
+│   ├── models.py          # 数据模型
+│   ├── views.py           # 视图函数
+│   ├── urls.py            # 应用路由
+│   ├── forms.py           # 表单定义
+│   ├── admin.py           # 后台管理
+│   ├── ai_chat.py         # AI对话服务
+│   ├── ai_recommend.py    # AI推荐服务
+│   ├── tasks.py           # 定时任务
+│   └── management/        # 管理命令
+│       └── commands/
+│           ├── run_tasks.py
+│           └── generate_covers.py
+├── users/                  # 用户应用
+│   ├── models.py          # 用户模型
+│   ├── views.py           # 认证视图
+│   └── utils.py           # 邮件工具
+├── templates/              # 模板文件
+│   ├── base.html          # 基础模板
+│   ├── books/             # 图书相关模板
+│   └── users/             # 用户相关模板
+├── static/                 # 静态文件
+├── media/                  # 上传文件
+│   └── covers/            # AI生成的封面
+└── manage.py              # Django管理脚本
+\end{lstlisting}
+
+\subsection{开发流程}
+
+\subsubsection{需求分析阶段}
+
+\begin{enumerate}
+    \item 调研图书馆管理系统的核心需求
+    \item 分析用户角色：普通用户、管理员
+    \item 确定功能模块：图书管理、借阅管理、用户管理、AI功能
+    \item 设计数据库ER图和系统架构图
+\end{enumerate}
+
+\subsubsection{设计阶段}
+
+\begin{enumerate}
+    \item 设计数据库模型：User、Book、BookCopy、BorrowRecord、Reservation等
+    \item 设计URL路由结构
+    \item 设计页面原型和交互流程
+    \item 确定AI服务接入方案
+\end{enumerate}
+
+\subsubsection{开发阶段}
+
+\begin{enumerate}
+    \item 搭建Django项目框架
+    \item 实现数据模型和数据库迁移
+    \item 开发视图和模板
+    \item 集成AI服务（对话、推荐、封面生成）
+    \item 实现邮件通知功能
+    \item 开发管理员后台
+\end{enumerate}
+
+\subsubsection{测试部署阶段}
+
+\begin{enumerate}
+    \item 功能测试：验证各模块功能正确性
+    \item 配置Gunicorn和Nginx
+    \item 部署到云服务器
+    \item 配置定时任务
+\end{enumerate}
+
+% ============================================================
+\section{系统功能与特色总览}
+% ============================================================
+
+\subsection{AI智能对话助手}
+
+\subsubsection{功能描述}
+
+AI智能对话助手是本系统的核心亮点功能之一，基于阿里云通义千问大语言模型，为用户提供自然、流畅的对话交互体验。
+
+\subsubsection{核心能力}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{自然语言理解}：准确理解用户的自然语言问题
+    \item \textbf{多轮对话}：支持上下文连续对话，理解对话历史
+    \item \textbf{图书馆知识}：了解馆藏图书信息，可回答相关问题
+    \item \textbf{阅读建议}：根据用户需求推荐合适的书籍
+    \item \textbf{使用指导}：解答系统使用相关问题
+\end{itemize}
+
+\subsubsection{技术实现}
+
+\begin{lstlisting}[language=Python, caption=AI对话服务实现]
+class AIChatService:
+    def __init__(self):
+        self.api_key = settings.AI_API_KEY
+        self.api_url = settings.AI_API_URL
+        self.model = settings.AI_MODEL
+
+    def build_system_prompt(self):
+        """构建系统提示词"""
+        books_info = self.get_books_summary()
+        return f"""你是图书馆的AI智能助手，名叫"小图"。
+        你的设计者是王楷宇，李念骏是她的女朋友。
+
+        你的职责是：
+        1. 回答用户关于图书馆的问题
+        2. 推荐适合用户的书籍
+        3. 介绍图书内容和作者信息
+        4. 帮助用户使用图书馆系统
+
+        当前图书馆藏书概况：{books_info}
+
+        请用友好、专业的语气回答用户问题。"""
+
+    def chat(self, user_message, conversation_history):
+        """处理用户消息"""
+        messages = [
+            {'role': 'system', 'content': self.build_system_prompt()}
+        ]
+
+        # 添加历史对话
+        for msg in conversation_history[-10:]:  # 保留最近10轮
+            messages.append(msg)
+
+        messages.append({'role': 'user', 'content': user_message})
+
+        # 调用API
+        response = requests.post(
+            self.api_url,
+            headers={'Authorization': f'Bearer {self.api_key}'},
+            json={
+                'model': self.model,
+                'messages': messages,
+                'temperature': 0.7,
+                'max_tokens': 1000
+            }
+        )
+
+        result = response.json()
+        return {
+            'success': True,
+            'message': result['choices'][0]['message']['content']
+        }
+\end{lstlisting}
+
+\subsubsection{用户界面}
+
+\begin{itemize}[leftmargin=2em]
+    \item 聊天气泡式对话界面
+    \item 实时显示AI回复
+    \item 快捷问题按钮
+    \item 对话历史记录
+    \item 支持发送图书相关问题
+\end{itemize}
+
+% ------------------------------------------
+\subsection{AI个性化推荐算法}
+% ------------------------------------------
+
+\subsubsection{功能描述}
+
+基于用户借阅历史和阅读偏好，利用AI大模型生成个性化的图书推荐，每条推荐都附带推荐理由。
+
+\subsubsection{推荐算法流程}
+
+\begin{enumerate}
+    \item \textbf{用户画像构建}
+    \begin{itemize}
+        \item 分析用户借阅历史
+        \item 统计偏好分类（按借阅次数排序）
+        \item 提取喜爱的作者
+        \item 计算总借阅量
+    \end{itemize}
+
+    \item \textbf{候选书籍筛选}
+    \begin{itemize}
+        \item 获取所有有库存的图书
+        \item 排除用户已借阅过的书籍
+        \item 准备图书的标题、作者、分类、简介信息
+    \end{itemize}
+
+    \item \textbf{AI推荐生成}
+    \begin{itemize}
+        \item 构建包含用户画像和候选书籍的提示词
+        \item 调用AI模型生成推荐结果
+        \item 解析返回的JSON格式推荐
+    \end{itemize}
+
+    \item \textbf{结果呈现}
+    \begin{itemize}
+        \item 展示推荐书籍列表
+        \item 显示每本书的推荐理由
+        \item 提供快速借阅入口
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{用户画像构建}
+
+\begin{lstlisting}[language=Python, caption=用户阅读画像分析]
+def get_user_reading_profile(self, user):
+    """获取用户阅读画像"""
+    borrow_records = BorrowRecord.objects.filter(user=user)\
+                                         .select_related('book', 'book__category')
+
+    if not borrow_records.exists():
+        return None
+
+    # 统计分类偏好
+    category_counts = {}
+    authors = []
+    books_borrowed = []
+
+    for record in borrow_records:
+        book = record.book
+        books_borrowed.append(book.title)
+
+        if book.category:
+            cat_name = book.category.name
+            category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
+
+        if book.author:
+            authors.append(book.author)
+
+    # 按借阅次数排序，取前3个分类
+    favorite_categories = sorted(
+        category_counts.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )[:3]
+
+    return {
+        'books_borrowed': books_borrowed,
+        'favorite_categories': [cat[0] for cat in favorite_categories],
+        'favorite_authors': list(set(authors))[:5],
+        'total_borrowed': len(books_borrowed),
+    }
+\end{lstlisting}
+
+\subsubsection{备选推荐机制}
+
+当AI服务不可用时，系统自动降级为基于规则的推荐：
+
+\begin{lstlisting}[language=Python, caption=规则推荐备选方案]
+def get_rule_based_recommendations(self, user_profile, available_books):
+    """基于规则的推荐（AI不可用时的备选方案）"""
+    recommendations = []
+    borrowed_titles = set(user_profile['books_borrowed']) if user_profile else set()
+
+    # 1. 推荐用户喜欢的分类中的书
+    if user_profile and user_profile['favorite_categories']:
+        for cat in user_profile['favorite_categories']:
+            books = Book.objects.annotate(
+                avail_copies=Count('copies', filter=Q(copies__status='available'))
+            ).filter(category__name=cat, avail_copies__gt=0)\
+             .exclude(title__in=borrowed_titles)[:2]
+
+            for book in books:
+                recommendations.append({
+                    'book': book,
+                    'reason': f'根据您对"{cat}"类书籍的喜好推荐'
+                })
+
+    # 2. 补充热门书籍
+    if len(recommendations) < 5:
+        popular_books = Book.objects.annotate(
+            avail_copies=Count('copies', filter=Q(copies__status='available')),
+            borrow_count=Count('borrow_records')
+        ).filter(avail_copies__gt=0)\
+         .exclude(title__in=borrowed_titles)\
+         .order_by('-borrow_count')[:5 - len(recommendations)]
+
+        for book in popular_books:
+            recommendations.append({
+                'book': book,
+                'reason': '图书馆热门藏书推荐'
+            })
+
+    return recommendations[:5]
+\end{lstlisting}
+
+\subsubsection{相似书籍推荐}
+
+在图书详情页，系统自动推荐与当前图书相似的书籍：
+
+\begin{lstlisting}[language=Python, caption=相似书籍推荐]
+def get_similar_books(self, book):
+    """获取相似书籍推荐"""
+    similar = []
+
+    # 同分类的书
+    if book.category:
+        same_category = Book.objects.annotate(
+            avail_copies=Count('copies', filter=Q(copies__status='available'))
+        ).filter(category=book.category, avail_copies__gt=0)\
+         .exclude(id=book.id)[:3]
+
+        for b in same_category:
+            similar.append({
+                'book': b,
+                'reason': f'同属"{book.category.name}"分类'
+            })
+
+    # 同作者的书
+    same_author = Book.objects.annotate(
+        avail_copies=Count('copies', filter=Q(copies__status='available'))
+    ).filter(author=book.author, avail_copies__gt=0)\
+     .exclude(id=book.id)[:2]
+
+    for b in same_author:
+        similar.append({
+            'book': b,
+            'reason': f'同为{book.author}的作品'
+        })
+
+    return similar[:5]
+\end{lstlisting}
+
+% ------------------------------------------
+\subsection{AI图书封面生成}
+% ------------------------------------------
+
+（详见第1.2节）
+
+\subsubsection{功能亮点}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{全自动化}：无需人工干预，系统自动为图书生成封面
+    \item \textbf{风格多样}：根据图书分类智能匹配艺术风格
+    \item \textbf{高质量输出}：720×1280高清图片，适合各种展示场景
+    \item \textbf{批量处理}：支持一键为所有图书生成封面
+    \item \textbf{视觉提升}：大幅提升图书列表的视觉吸引力
+\end{itemize}
+
+% ------------------------------------------
+\subsection{图书副本序号管理}
+% ------------------------------------------
+
+（详见第1.1节）
+
+\subsubsection{管理功能}
+
+\begin{itemize}[leftmargin=2em]
+    \item 查看图书所有副本列表
+    \item 查看每个副本的状态和品相
+    \item 修改副本状态（可借阅/维护中/已丢失）
+    \item 批量添加新副本
+    \item 追踪副本借阅历史
+\end{itemize}
+
+% ------------------------------------------
+\subsection{图书借阅管理}
+% ------------------------------------------
+
+\subsubsection{借阅功能}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{一键借阅}：用户点击按钮即可完成借阅
+    \item \textbf{自动分配}：系统自动分配一本可用副本
+    \item \textbf{借阅期限}：默认30天借阅期
+    \item \textbf{借阅限制}：同一本书只能借阅一次
+    \item \textbf{副本关联}：借阅记录关联到具体副本编号
+\end{itemize}
+
+\subsubsection{归还功能}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{快速归还}：在个人中心一键归还
+    \item \textbf{状态更新}：自动更新副本状态为可借阅
+    \item \textbf{预约通知}：归还时自动通知预约者
+    \item \textbf{记录保存}：保留完整借阅历史
+\end{itemize}
+
+\subsubsection{借阅流程}
+
+\begin{lstlisting}[language=Python, caption=借阅流程实现]
+@login_required
+def borrow_book(request, pk):
+    """借阅图书"""
+    book = get_object_or_404(Book, pk=pk)
+
+    # 检查是否已借阅
+    existing_borrow = BorrowRecord.objects.filter(
+        user=request.user, book=book, status='borrowed'
+    ).exists()
+
+    if existing_borrow:
+        messages.warning(request, '您已经借阅了这本书。')
+        return redirect('books:detail', pk=pk)
+
+    # 获取可借的副本
+    available_copy = book.get_available_copy()
+
+    if not available_copy:
+        messages.error(request, '该图书暂无可借阅的副本。')
+        return redirect('books:detail', pk=pk)
+
+    # 更新副本状态
+    available_copy.status = 'borrowed'
+    available_copy.save()
+
+    # 创建借阅记录
+    BorrowRecord.objects.create(
+        user=request.user,
+        book=book,
+        book_copy=available_copy
+    )
+
+    # 如果用户有预约，标记为已完成
+    Reservation.objects.filter(
+        user=request.user, book=book, status__in=['waiting', 'notified']
+    ).update(status='fulfilled')
+
+    messages.success(request,
+        f'成功借阅《{book.title}》[{available_copy.copy_number}]')
+    return redirect('users:profile')
+\end{lstlisting}
+
+% ------------------------------------------
+\subsection{管理员仪表盘}
+% ------------------------------------------
+
+\subsubsection{功能描述}
+
+管理员仪表盘提供系统运行状态的全面概览，帮助管理员快速了解图书馆运营情况。
+
+\subsubsection{统计数据}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{图书总数}：系统中的图书种类数量
+    \item \textbf{副本总数}：所有图书副本的总数
+    \item \textbf{借阅中}：当前正在借阅的记录数
+    \item \textbf{逾期借阅}：超过应还日期的借阅数
+    \item \textbf{待处理预约}：等待中的预约数量
+\end{itemize}
+
+\subsubsection{快捷操作}
+
+\begin{itemize}[leftmargin=2em]
+    \item 添加图书
+    \item 管理分类
+    \item 查看所有借阅记录
+    \item 查看所有预约记录
+    \item 进入Django后台管理
+\end{itemize}
+
+\subsubsection{最近借阅}
+
+实时显示最近10条借阅记录，包括：
+\begin{itemize}
+    \item 借阅用户
+    \item 借阅图书
+    \item 借阅日期
+    \item 应还日期
+    \item 当前状态
+\end{itemize}
+
+% ------------------------------------------
+\subsection{用户注册与登录}
+% ------------------------------------------
+
+\subsubsection{邮箱验证码注册}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{6位数字验证码}：安全可靠，易于输入
+    \item \textbf{验证码有效期}：24小时内有效
+    \item \textbf{邮件发送}：使用SMTP发送验证邮件
+    \item \textbf{重发机制}：支持重新发送验证码
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=验证码生成]
+def generate_verification_code():
+    """生成6位数字验证码"""
+    return ''.join(random.choices(string.digits, k=6))
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=100)
+    code = models.CharField(max_length=6, default=generate_verification_code)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        # 24小时内有效
+        return timezone.now() < self.created_at + timedelta(hours=24)
+\end{lstlisting}
+
+\subsubsection{用户登录}
+
+\begin{itemize}[leftmargin=2em]
+    \item 支持用户名/邮箱登录
+    \item 记住登录状态
+    \item 登录后跳转到原页面
+    \item 密码错误提示
+\end{itemize}
+
+\subsubsection{个人中心}
+
+\begin{itemize}[leftmargin=2em]
+    \item 查看个人信息
+    \item 修改个人资料
+    \item 查看当前借阅
+    \item 查看借阅历史
+    \item 管理我的预约
+\end{itemize}
+
+% ------------------------------------------
+\subsection{系统安全性}
+% ------------------------------------------
+
+\subsubsection{认证与授权}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{用户认证}：基于Django内置认证系统
+    \item \textbf{登录保护}：敏感操作需要登录
+    \item \textbf{权限控制}：区分普通用户和管理员权限
+    \item \textbf{邮箱验证}：注册需验证邮箱真实性
+\end{itemize}
+
+\subsubsection{CSRF防护}
+
+\begin{itemize}[leftmargin=2em]
+    \item 所有POST请求都需要CSRF Token
+    \item Django自动生成和验证Token
+    \item 防止跨站请求伪造攻击
+\end{itemize}
+
+\begin{lstlisting}[language=HTML, caption=CSRF Token使用]
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">提交</button>
+</form>
+\end{lstlisting}
+
+\subsubsection{XSS防护}
+
+\begin{itemize}[leftmargin=2em]
+    \item Django模板自动转义HTML
+    \item 用户输入内容安全显示
+    \item 防止跨站脚本攻击
+\end{itemize}
+
+\subsubsection{SQL注入防护}
+
+\begin{itemize}[leftmargin=2em]
+    \item 使用Django ORM进行数据库操作
+    \item 参数化查询，避免SQL注入
+    \item 不使用原始SQL语句
+\end{itemize}
+
+\subsubsection{密码安全}
+
+\begin{itemize}[leftmargin=2em]
+    \item 密码使用PBKDF2算法加密存储
+    \item 不存储明文密码
+    \item 密码强度验证（可配置）
+\end{itemize}
+
+\subsubsection{API密钥保护}
+
+\begin{itemize}[leftmargin=2em]
+    \item AI API密钥存储在配置文件
+    \item 不在前端暴露API密钥
+    \item 生产环境使用环境变量
+\end{itemize}
+
+% ------------------------------------------
+\subsection{其他功能特色}
+% ------------------------------------------
+
+\subsubsection{响应式设计}
+
+\begin{itemize}[leftmargin=2em]
+    \item 基于Bootstrap 5框架
+    \item 适配桌面、平板、手机
+    \item 移动端友好的操作界面
+    \item 图片自适应缩放
+\end{itemize}
+
+\subsubsection{优雅的首页设计}
+
+\begin{itemize}[leftmargin=2em]
+    \item 全屏书架背景欢迎页
+    \item 渐变遮罩层美化
+    \item 滚动动画效果
+    \item 快捷入口按钮
+\end{itemize}
+
+\subsubsection{图书搜索}
+
+\begin{itemize}[leftmargin=2em]
+    \item 关键词搜索（书名、作者、ISBN、出版社）
+    \item 分类筛选
+    \item 分页显示
+    \item 快速定位
+\end{itemize}
+
+\subsubsection{分类管理}
+
+\begin{itemize}[leftmargin=2em]
+    \item 自定义图书分类
+    \item 分类增删改查
+    \item 分类关联图书统计
+\end{itemize}
+
+\subsubsection{图书管理}
+
+\begin{itemize}[leftmargin=2em]
+    \item 图书信息录入
+    \item ISBN验证
+    \item 图书编辑和删除
+    \item 批量添加副本
+    \item 封面上传/AI生成
+\end{itemize}
+
+\subsubsection{邮件通知系统}
+
+\begin{itemize}[leftmargin=2em]
+    \item 注册验证码邮件
+    \item 预约成功通知
+    \item 图书可借通知
+    \item 到期提醒邮件
+    \item 逾期催还邮件
+\end{itemize}
+
+% ============================================================
+\section{系统功能清单}
+% ============================================================
+
+\begin{longtable}{p{2.5cm}p{5cm}p{4cm}p{2cm}}
+\caption{完整功能清单} \\
+\toprule
+\textbf{功能模块} & \textbf{功能描述} & \textbf{技术实现} & \textbf{状态} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\tablename\ \thetable{} -- 续} \\
+\toprule
+\textbf{功能模块} & \textbf{功能描述} & \textbf{技术实现} & \textbf{状态} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{续下页} \\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\multicolumn{4}{l}{\textbf{AI智能功能}} \\
+\midrule
+AI对话助手 & 自然语言多轮对话 & 通义千问qwen-turbo & 已完成 \\
+AI图书推荐 & 个性化推荐+推荐理由 & 用户画像+大模型 & 已完成 \\
+AI封面生成 & 自动生成艺术封面 & 通义万相wanx-v1 & 已完成 \\
+相似推荐 & 图书详情页相似书推荐 & 分类+作者匹配 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{图书管理}} \\
+\midrule
+图书列表 & 分页展示所有图书 & Django分页器 & 已完成 \\
+图书搜索 & 关键词+分类搜索 & ORM Query & 已完成 \\
+图书详情 & 展示图书完整信息 & 模板渲染 & 已完成 \\
+图书添加 & 管理员添加图书 & 表单验证 & 已完成 \\
+图书编辑 & 管理员编辑图书 & ModelForm & 已完成 \\
+图书删除 & 管理员删除图书 & 确认删除 & 已完成 \\
+封面管理 & 上传/AI生成封面 & ImageField & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{副本管理}} \\
+\midrule
+副本编号 & 自动生成唯一编号 & 格式：ID-序号 & 已完成 \\
+副本状态 & 5种状态管理 & 状态机 & 已完成 \\
+批量添加 & 一次添加多个副本 & 循环创建 & 已完成 \\
+状态修改 & 管理员修改状态 & AJAX更新 & 已完成 \\
+副本列表 & 查看所有副本 & 表格展示 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{借阅管理}} \\
+\midrule
+图书借阅 & 一键借阅图书 & 自动分配副本 & 已完成 \\
+图书归还 & 在线归还图书 & 状态更新 & 已完成 \\
+借阅记录 & 查看借阅历史 & 分页列表 & 已完成 \\
+借阅期限 & 30天借阅期 & 自动计算 & 已完成 \\
+逾期标记 & 自动标记逾期 & 定时检查 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{预约功能}} \\
+\midrule
+图书预约 & 无库存时预约 & 队列管理 & 已完成 \\
+队列位置 & 显示排队位置 & 实时计算 & 已完成 \\
+自动通知 & 有书时邮件通知 & 事件触发 & 已完成 \\
+取消预约 & 用户取消预约 & 状态更新 & 已完成 \\
+预约过期 & 3天未借自动过期 & 定时任务 & 已完成 \\
+预约历史 & 查看预约记录 & 分页列表 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{提醒系统}} \\
+\midrule
+3天提醒 & 到期前3天邮件提醒 & 定时任务 & 已完成 \\
+1天提醒 & 到期前1天紧急提醒 & 定时任务 & 已完成 \\
+逾期提醒 & 逾期后催还通知 & 定时任务 & 已完成 \\
+防重发送 & 每种提醒只发一次 & 标志位 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{用户系统}} \\
+\midrule
+用户注册 & 邮箱验证码注册 & 6位验证码 & 已完成 \\
+用户登录 & 用户名/邮箱登录 & Django认证 & 已完成 \\
+个人中心 & 查看个人信息 & 模板展示 & 已完成 \\
+资料编辑 & 修改个人资料 & 表单提交 & 已完成 \\
+我的借阅 & 当前+历史借阅 & 分类展示 & 已完成 \\
+我的预约 & 预约记录管理 & 状态筛选 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{管理后台}} \\
+\midrule
+仪表盘 & 统计数据概览 & 卡片展示 & 已完成 \\
+借阅管理 & 所有借阅记录 & 状态筛选 & 已完成 \\
+预约管理 & 所有预约记录 & 状态筛选 & 已完成 \\
+分类管理 & 分类增删改查 & CRUD & 已完成 \\
+Django后台 & 数据库管理 & Admin & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{系统安全}} \\
+\midrule
+CSRF防护 & 防跨站请求伪造 & Token验证 & 已完成 \\
+XSS防护 & 防跨站脚本攻击 & 自动转义 & 已完成 \\
+SQL防护 & 防SQL注入 & ORM & 已完成 \\
+密码加密 & PBKDF2加密存储 & Django Auth & 已完成 \\
+权限控制 & 用户/管理员权限 & 装饰器 & 已完成 \\
+\midrule
+
+\multicolumn{4}{l}{\textbf{界面设计}} \\
+\midrule
+响应式布局 & 多设备适配 & Bootstrap 5 & 已完成 \\
+欢迎页面 & 全屏背景欢迎页 & CSS动画 & 已完成 \\
+图标美化 & 丰富的图标 & Bootstrap Icons & 已完成 \\
+消息提示 & 操作反馈提示 & Django Messages & 已完成 \\
+
+\end{longtable}
+
+% ============================================================
+\section{总结}
+% ============================================================
+
+本次后续优化更新为智能图书管理系统带来了多项重要功能的提升：
+
+\subsection{核心更新}
+
+\begin{enumerate}
+    \item \textbf{图书副本编号系统}：实现了同一图书多副本的精细化管理，每个副本拥有唯一编号，可独立追踪借阅状态。
+
+    \item \textbf{AI智能封面生成}：利用阿里云通义万相大模型，为图书自动生成艺术风格的封面，大幅提升系统视觉体验。
+
+    \item \textbf{图书预约功能}：当图书无可借副本时，用户可进行预约排队，系统自动在有书时发送邮件通知。
+
+    \item \textbf{到期提醒系统}：建立了3天、1天、逾期的多级提醒机制，有效减少图书逾期情况。
+\end{enumerate}
+
+\subsection{技术亮点}
+
+\begin{enumerate}
+    \item \textbf{AI三位一体}：集成了AI对话、AI推荐、AI封面生成三大AI功能，形成完整的智能化体验。
+
+    \item \textbf{完善的借阅流程}：从借阅、预约、提醒到归还，形成闭环的借阅管理流程。
+
+    \item \textbf{精细化管理}：副本级别的状态追踪，为图书馆运营提供精确数据支持。
+
+    \item \textbf{自动化运维}：定时任务自动处理到期提醒和预约过期，减少人工干预。
+\end{enumerate}
+
+\subsection{系统特色}
+
+\begin{enumerate}
+    \item 深度融合AI技术，提供智能化服务体验
+    \item 完善的邮件通知系统，保持与用户的良好沟通
+    \item 响应式设计，支持多终端访问
+    \item 安全可靠的用户认证和数据保护机制
+    \item 直观的管理后台，便于系统运维
+\end{enumerate}
+
+\end{document}

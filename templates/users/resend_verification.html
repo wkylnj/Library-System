@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}重新发送验证码 - 图书管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-envelope-arrow-up"></i> 重新发送验证码</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    请输入您注册时使用的邮箱地址，我们将重新发送验证码。
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱地址</label>
+                        <input type="email" class="form-control" id="email" name="email" required
+                               placeholder="请输入注册邮箱">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-send"></i> 发送验证码
+                    </button>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <a href="{% url 'users:login' %}">返回登录</a>
+                |
+                <a href="{% url 'users:register' %}">重新注册</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

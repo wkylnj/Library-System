@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ book.title }} - 图书管理系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'books:index' %}">首页</a></li>
+        <li class="breadcrumb-item active">{{ book.title }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ book.title }}</h4>
+                {% if user.is_authenticated and user.is_admin %}
+                <div>
+                    <a href="{% url 'books:book_edit' book.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil"></i> 编辑
+                    </a>
+                    <a href="{% url 'books:book_delete' book.pk %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash"></i> 删除
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if book.cover %}
+                <div class="text-center mb-4">
+                    <img src="{{ book.cover.url }}" alt="{{ book.title }}" class="img-fluid rounded shadow" style="max-height: 300px;">
+                </div>
+                {% endif %}
+                <table class="table table-borderless">
+                    <tr>
+                        <th style="width: 100px;">作者</th>
+                        <td>{{ book.author }}</td>
+                    </tr>
+                    <tr>
+                        <th>ISBN</th>
+                        <td>{{ book.isbn }}</td>
+                    </tr>
+                    <tr>
+                        <th>出版社</th>
+                        <td>{{ book.publisher|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>出版日期</th>
+                        <td>{{ book.publish_date|date:"Y-m-d"|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>分类</th>
+                        <td>
+                            {% if book.category %}
+                            <span class="badge bg-secondary">{{ book.category.name }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>位置</th>
+                        <td>{{ book.location|default:"-" }}</td>
+                    </tr>
+                </table>
+
+                <h5>简介</h5>
+                <p class="text-muted">{{ book.description|default:"暂无简介"|linebreaks }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">借阅信息</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="display-4 mb-3">
+                    {{ book.available_copies }}<small class="text-muted">/{{ book.total_copies }}</small>
+                </div>
+                <p class="text-muted">可借阅 / 总数量</p>
+
+                {% if book.is_available %}
+                <span class="badge bg-success fs-6 mb-3">可借阅</span>
+                {% else %}
+                <span class="badge bg-danger fs-6 mb-3">暂无库存</span>
+                {% endif %}
+
+                <hr>
+
+                {% if user.is_authenticated %}
+                    {% if user_borrowed %}
+                    <p class="text-info"><i class="bi bi-info-circle"></i> 您已借阅此书</p>
+                    <a href="{% url 'users:profile' %}" class="btn btn-secondary">查看我的借阅</a>
+                    {% elif book.is_available %}
+                    <form action="{% url 'books:borrow' book.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-book"></i> 借阅此书
+                        </button>
+                    </form>
+                    <small class="text-muted mt-2 d-block">借阅期限：30天</small>
+                    {% else %}
+                        {% if user_reserved %}
+                        <p class="text-warning"><i class="bi bi-clock"></i> 您已预约此书</p>
+                        <p class="text-muted small">队列位置：第 {{ user_reservation.queue_position }} 位</p>
+                        <form action="{% url 'books:cancel_reservation' user_reservation.pk %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger">取消预约</button>
+                        </form>
+                        {% else %}
+                        <p class="text-muted small mb-2">当前预约人数：{{ reservation_count }} 人</p>
+                        <form action="{% url 'books:reserve' book.pk %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-warning btn-lg w-100">
+                                <i class="bi bi-bell"></i> 预约此书
+                            </button>
+                        </form>
+                        <small class="text-muted mt-2 d-block">有书时将发邮件通知您</small>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                <p class="text-muted">请先登录后借阅</p>
+                <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> 登录
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 相似书籍推荐 -->
+        {% if similar_books %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightbulb"></i> 相似推荐</h5>
+            </div>
+            <div class="card-body">
+                {% for item in similar_books %}
+                <div class="d-flex mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                    <div class="flex-grow-1">
+                        <a href="{% url 'books:detail' item.book.pk %}" class="text-decoration-none fw-bold">
+                            《{{ item.book.title }}》
+                        </a>
+                        <small class="text-muted d-block">{{ item.book.author }}</small>
+                        <small class="text-primary"><i class="bi bi-chat-quote"></i> {{ item.reason }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 副本信息（管理员可见） -->
+        {% if user.is_authenticated and user.is_admin %}
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-copy"></i> 副本信息</h5>
+                <a href="{% url 'books:book_copies' book.pk %}" class="btn btn-sm btn-outline-primary">管理副本</a>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>编号</th>
+                            <th>状态</th>
+                            <th>品相</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for copy in book.copies.all %}
+                        <tr>
+                            <td><code>{{ copy.copy_number }}</code></td>
+                            <td>
+                                {% if copy.status == 'available' %}
+                                <span class="badge bg-success">可借阅</span>
+                                {% elif copy.status == 'borrowed' %}
+                                <span class="badge bg-warning">已借出</span>
+                                {% elif copy.status == 'reserved' %}
+                                <span class="badge bg-info">已预约</span>
+                                {% elif copy.status == 'maintenance' %}
+                                <span class="badge bg-secondary">维护中</span>
+                                {% else %}
+                                <span class="badge bg-danger">已丢失</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ copy.condition }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">暂无副本</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

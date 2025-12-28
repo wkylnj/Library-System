@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}个人中心 - 图书管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person-circle"></i> 个人信息</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>用户名：</strong>{{ user.username }}</p>
+                <p><strong>邮箱：</strong>{{ user.email|default:"未设置" }}</p>
+                <p><strong>电话：</strong>{{ user.phone|default:"未设置" }}</p>
+                <p><strong>角色：</strong>
+                    {% if user.is_admin %}
+                    <span class="badge bg-warning">管理员</span>
+                    {% else %}
+                    <span class="badge bg-info">普通用户</span>
+                    {% endif %}
+                </p>
+                <p><strong>注册时间：</strong>{{ user.date_joined|date:"Y-m-d H:i" }}</p>
+                <a href="{% url 'users:edit_profile' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil"></i> 编辑资料
+                </a>
+                <a href="{% url 'books:my_reservations' %}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-bell"></i> 我的预约
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <!-- 当前借阅 -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-book"></i> 当前借阅 ({{ current_borrows.count }})</h5>
+            </div>
+            <div class="card-body">
+                {% if current_borrows %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>书名</th>
+                                <th>借阅日期</th>
+                                <th>应还日期</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in current_borrows %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'books:detail' record.book.pk %}">{{ record.book.title }}</a>
+                                    {% if record.book_copy %}
+                                    <small class="text-muted">[{{ record.book_copy.copy_number }}]</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.borrow_date|date:"Y-m-d" }}</td>
+                                <td>{{ record.due_date|date:"Y-m-d" }}</td>
+                                <td>
+                                    {% if record.is_overdue %}
+                                    <span class="badge bg-danger">已逾期</span>
+                                    {% elif record.days_remaining <= 3 %}
+                                    <span class="badge bg-warning">即将到期</span>
+                                    {% else %}
+                                    <span class="badge bg-success">正常</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form action="{% url 'books:return' record.pk %}" method="post" style="display:inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-primary">归还</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">暂无借阅记录，<a href="{% url 'books:index' %}">去借阅图书</a></p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> 借阅历史</h5>
+            </div>
+            <div class="card-body">
+                {% if history_borrows %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>书名</th>
+                                <th>借阅日期</th>
+                                <th>归还日期</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in history_borrows %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'books:detail' record.book.pk %}">{{ record.book.title }}</a>
+                                </td>
+                                <td>{{ record.borrow_date|date:"Y-m-d" }}</td>
+                                <td>{{ record.return_date|date:"Y-m-d" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">暂无历史记录</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

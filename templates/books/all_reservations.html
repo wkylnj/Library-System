@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}所有预约记录 - 图书管理系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'books:index' %}">首页</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'admin_dashboard' %}">管理后台</a></li>
+        <li class="breadcrumb-item active">所有预约记录</li>
+    </ol>
+</nav>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="bi bi-bell"></i> 所有预约记录</h4>
+        <div>
+            <a href="?status=waiting" class="btn btn-sm {% if request.GET.status == 'waiting' %}btn-warning{% else %}btn-outline-warning{% endif %}">等待中</a>
+            <a href="?status=notified" class="btn btn-sm {% if request.GET.status == 'notified' %}btn-info{% else %}btn-outline-info{% endif %}">已通知</a>
+            <a href="?status=fulfilled" class="btn btn-sm {% if request.GET.status == 'fulfilled' %}btn-success{% else %}btn-outline-success{% endif %}">已完成</a>
+            <a href="?status=cancelled" class="btn btn-sm {% if request.GET.status == 'cancelled' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">已取消</a>
+            <a href="?status=expired" class="btn btn-sm {% if request.GET.status == 'expired' %}btn-danger{% else %}btn-outline-danger{% endif %}">已过期</a>
+            <a href="{% url 'books:all_reservations' %}" class="btn btn-sm btn-outline-dark">全部</a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if reservations %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>用户</th>
+                        <th>图书</th>
+                        <th>预约时间</th>
+                        <th>状态</th>
+                        <th>通知时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reservation in reservations %}
+                    <tr>
+                        <td>{{ reservation.user.username }}</td>
+                        <td>
+                            <a href="{% url 'books:detail' reservation.book.pk %}">
+                                《{{ reservation.book.title }}》
+                            </a>
+                        </td>
+                        <td>{{ reservation.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if reservation.status == 'waiting' %}
+                            <span class="badge bg-warning">等待中</span>
+                            {% elif reservation.status == 'notified' %}
+                            <span class="badge bg-info">已通知</span>
+                            {% elif reservation.status == 'fulfilled' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% elif reservation.status == 'cancelled' %}
+                            <span class="badge bg-secondary">已取消</span>
+                            {% elif reservation.status == 'expired' %}
+                            <span class="badge bg-danger">已过期</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ reservation.notified_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if reservations.has_other_pages %}
+        <nav aria-label="分页">
+            <ul class="pagination justify-content-center">
+                {% if reservations.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ reservations.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">上一页</a>
+                </li>
+                {% endif %}
+
+                {% for num in reservations.paginator.page_range %}
+                    {% if reservations.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > reservations.number|add:'-3' and num < reservations.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if reservations.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ reservations.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-bell-slash display-4 text-muted"></i>
+            <p class="text-muted mt-3">暂无预约记录</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

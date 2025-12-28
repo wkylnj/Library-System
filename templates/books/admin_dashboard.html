@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}管理仪表板 - 图书管理系统{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> 管理仪表板</h2>
+
+<!-- 统计卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">图书总数</h6>
+                        <h2 class="mb-0">{{ total_books }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-book fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'books:book_add' %}" class="text-white text-decoration-none">
+                    <i class="bi bi-plus"></i> 添加图书
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">借阅中</h6>
+                        <h2 class="mb-0">{{ total_borrows }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-journal-bookmark fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'all_borrow_records' %}?status=borrowed" class="text-white text-decoration-none">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">逾期借阅</h6>
+                        <h2 class="mb-0">{{ overdue_borrows }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-exclamation-triangle fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'all_borrow_records' %}?status=overdue" class="text-white text-decoration-none">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">待处理预约</h6>
+                        <h2 class="mb-0">{{ pending_reservations }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-bell fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'books:all_reservations' %}?status=waiting" class="text-white text-decoration-none">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快捷操作 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> 快捷操作</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'books:book_add' %}" class="btn btn-primary me-2">
+                    <i class="bi bi-plus-circle"></i> 添加图书
+                </a>
+                <a href="{% url 'books:category_list' %}" class="btn btn-secondary me-2">
+                    <i class="bi bi-folder"></i> 管理分类
+                </a>
+                <a href="{% url 'all_borrow_records' %}" class="btn btn-info me-2">
+                    <i class="bi bi-list"></i> 所有借阅
+                </a>
+                <a href="{% url 'books:all_reservations' %}" class="btn btn-warning me-2">
+                    <i class="bi bi-bell"></i> 所有预约
+                </a>
+                <a href="{% url 'admin:index' %}" class="btn btn-dark">
+                    <i class="bi bi-gear"></i> 后台管理
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近借阅 -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> 最近借阅记录</h5>
+    </div>
+    <div class="card-body">
+        {% if recent_borrows %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>用户</th>
+                        <th>图书</th>
+                        <th>借阅日期</th>
+                        <th>应还日期</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in recent_borrows %}
+                    <tr>
+                        <td>{{ record.user.username }}</td>
+                        <td><a href="{% url 'books:detail' record.book.pk %}">{{ record.book.title }}</a></td>
+                        <td>{{ record.borrow_date|date:"Y-m-d H:i" }}</td>
+                        <td>{{ record.due_date|date:"Y-m-d" }}</td>
+                        <td>
+                            {% if record.status == 'returned' %}
+                            <span class="badge bg-secondary">已归还</span>
+                            {% elif record.is_overdue %}
+                            <span class="badge bg-danger">已逾期</span>
+                            {% else %}
+                            <span class="badge bg-success">借阅中</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">暂无借阅记录</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

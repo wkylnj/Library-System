@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}我的预约 - 图书管理系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'books:index' %}">首页</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'users:profile' %}">个人中心</a></li>
+        <li class="breadcrumb-item active">我的预约</li>
+    </ol>
+</nav>
+
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0"><i class="bi bi-bell"></i> 我的预约</h4>
+    </div>
+    <div class="card-body">
+        {% if reservations %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>图书</th>
+                        <th>预约时间</th>
+                        <th>状态</th>
+                        <th>队列位置</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reservation in reservations %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'books:detail' reservation.book.pk %}">
+                                《{{ reservation.book.title }}》
+                            </a>
+                            <small class="text-muted d-block">{{ reservation.book.author }}</small>
+                        </td>
+                        <td>{{ reservation.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if reservation.status == 'waiting' %}
+                            <span class="badge bg-warning">等待中</span>
+                            {% elif reservation.status == 'notified' %}
+                            <span class="badge bg-info">已通知</span>
+                            <small class="text-muted d-block">{{ reservation.notified_at|date:"Y-m-d H:i" }}</small>
+                            {% elif reservation.status == 'fulfilled' %}
+                            <span class="badge bg-success">已完成</span>
+                            {% elif reservation.status == 'cancelled' %}
+                            <span class="badge bg-secondary">已取消</span>
+                            {% elif reservation.status == 'expired' %}
+                            <span class="badge bg-danger">已过期</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if reservation.status == 'waiting' %}
+                            第 {{ reservation.queue_position }} 位
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if reservation.status == 'waiting' %}
+                            <form action="{% url 'books:cancel_reservation' reservation.pk %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定要取消预约吗？')">
+                                    取消预约
+                                </button>
+                            </form>
+                            {% elif reservation.status == 'notified' %}
+                            <a href="{% url 'books:borrow' reservation.book.pk %}" class="btn btn-sm btn-primary">去借阅</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-bell-slash display-4 text-muted"></i>
+            <p class="text-muted mt-3">暂无预约记录</p>
+            <a href="{% url 'books:index' %}" class="btn btn-primary">浏览图书</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

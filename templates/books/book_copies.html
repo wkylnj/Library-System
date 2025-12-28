@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}副本管理 - {{ book.title }} - 图书管理系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'books:index' %}">首页</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'books:detail' book.pk %}">{{ book.title }}</a></li>
+        <li class="breadcrumb-item active">副本管理</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-copy"></i> 《{{ book.title }}》副本列表</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>副本编号</th>
+                                <th>状态</th>
+                                <th>品相</th>
+                                <th>入库时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for copy in copies %}
+                            <tr>
+                                <td><code>{{ copy.copy_number }}</code></td>
+                                <td>
+                                    {% if copy.status == 'available' %}
+                                    <span class="badge bg-success">可借阅</span>
+                                    {% elif copy.status == 'borrowed' %}
+                                    <span class="badge bg-warning">已借出</span>
+                                    {% elif copy.status == 'reserved' %}
+                                    <span class="badge bg-info">已预约</span>
+                                    {% elif copy.status == 'maintenance' %}
+                                    <span class="badge bg-secondary">维护中</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">已丢失</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ copy.condition }}</td>
+                                <td>{{ copy.created_at|date:"Y-m-d" }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            更改状态
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <form action="" method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="update">
+                                                    <input type="hidden" name="copy_id" value="{{ copy.pk }}">
+                                                    <input type="hidden" name="status" value="available">
+                                                    <button type="submit" class="dropdown-item">可借阅</button>
+                                                </form>
+                                            </li>
+                                            <li>
+                                                <form action="" method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="update">
+                                                    <input type="hidden" name="copy_id" value="{{ copy.pk }}">
+                                                    <input type="hidden" name="status" value="maintenance">
+                                                    <button type="submit" class="dropdown-item">维护中</button>
+                                                </form>
+                                            </li>
+                                            <li>
+                                                <form action="" method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="update">
+                                                    <input type="hidden" name="copy_id" value="{{ copy.pk }}">
+                                                    <input type="hidden" name="status" value="lost">
+                                                    <button type="submit" class="dropdown-item text-danger">已丢失</button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">暂无副本</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> 添加副本</h5>
+            </div>
+            <div class="card-body">
+                <form action="" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add">
+                    <div class="mb-3">
+                        <label class="form-label">添加数量</label>
+                        <input type="number" name="count" value="1" min="1" max="50" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus"></i> 添加副本
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> 统计信息</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>总副本数</span>
+                        <strong>{{ book.total_copies }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>可借阅</span>
+                        <strong class="text-success">{{ book.available_copies }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>已借出</span>
+                        <strong class="text-warning">{{ book.borrowed_copies }}</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
